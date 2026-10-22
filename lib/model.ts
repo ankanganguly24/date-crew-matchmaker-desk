@@ -59,6 +59,7 @@ export type Introduction = {
   clientKey: string;
   candidateKey: string;
   createdAt: number;
+  isSample?: boolean;
   note: string;
   events: IntroEvent[];
   followUpAt?: number;

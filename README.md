@@ -1,6 +1,6 @@
 # The Date Crew · Matchmaker Desk
 
-An independent assessment prototype built with **Next.js, TypeScript and Convex**. The library contains exactly **1,500 fictional profiles**. Introduction history starts empty for each visitor.
+An independent assessment prototype built with **Next.js, TypeScript and Convex**. The library contains exactly **1,500 fictional profiles**. New visitors receive **six clearly labeled, scripted example introductions** in their own private demo session.
 
 ## What this tests
 
@@ -9,6 +9,8 @@ Can a solo matchmaker find a short, explainable list from recorded facts, keep l
 The prototype demonstrates a workflow. It does **not** establish adoption, business uplift, chemistry, accuracy of real intake records or savings in staff time.
 
 ## Try it
+
+The home activity overview starts with six examples: one completed meeting, one conversation, mutual interest, one-sided interest, an explicit decline and an undecided draft. Each example has a **Sample scenario** badge and original notes stating that it is fictional. Initial counts are 6 introductions, 3 with mutual interest, 2 with contact exchange and 1 completed meeting. These are scripted scenarios, not measured company results. Reviewer-created introductions are counted separately in the activity legend. **Start empty** opens a clean private session; **Load sample activity** restores examples without duplicating them or replacing existing reviewer work.
 
 1. Choose a fictional client. The desk shows up to five opposite-gender profiles that meet both people's confirmed must-haves, ranked by the number of recorded preference facts that align.
 2. If there are fewer than five strict matches, review a separate “Worth a look” list. It labels confirmed must-have differences; they are not presented as matches, and saving one requires an explicit acknowledgement.
@@ -44,6 +46,7 @@ The static Next.js build is written to `out/`. All database operations run in Co
 
 - `lib/model.ts`: explainable match ranking, intake validation and individual activity summaries.
 - `lib/fixtures.ts`: deterministic fictional intake records with an explicit demo gender field. No real photos, email addresses, caste or inferred income.
+- `lib/demo-activity.ts`: six scripted example introductions; copied per session, labeled in cards, analytics and exported data.
 - `convex/schema.ts`: namespaced typed tables, gender eligibility and search/index definitions.
 - `convex/library.ts`: indexed profile lookup, gender-filtered recommendations and cursor-paginated search.
 - `convex/workspace.ts`: backend-validated, session-scoped draft and event writes.
@@ -58,7 +61,7 @@ To seed the authorized demo deployment after deploying functions:
 node scripts/seed.mjs
 ```
 
-The seed adds missing profiles only. It does not delete unrelated tables, overwrite real records or create historical introduction outcomes. `node scripts/verify-backend.mjs` performs a live integration check using its own fictional-data sessions.
+The profile seed does not delete unrelated tables, overwrite real records or create global introduction history. Example activity is copied into private sessions by an idempotent backend mutation. `node scripts/verify-backend.mjs` performs a live integration check using its own fictional-data sessions, including sample counts, repeat initialization, empty mode and isolation.
 
 To rebuild the walkthrough GIF after updating its captured screens, run `python3 scripts/create_walkthrough_gif.py`.
 

@@ -5,6 +5,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
+import { makeDemoActivity } from "../lib/demo-activity";
 const eventTypes = [
   "accepted",
   "declined",
@@ -26,24 +27,71 @@ async function session(ctx: QueryCtx | MutationCtx, token: string) {
     throw new Error("Your demo session expired. Start a new session.");
   return s;
 }
+async function addExamples(ctx: MutationCtx, token: string) {
+  const rows = await ctx.db
+    .query("deskIntroductions")
+    .withIndex("by_session", (q) => q.eq("session", token))
+    .take(100);
+  const additions = makeDemoActivity(Date.now()).filter(
+    (example) =>
+      !rows.some(
+        (row) =>
+          row.key === example.key ||
+          (row.clientKey === example.clientKey &&
+            row.candidateKey === example.candidateKey),
+      ),
+  );
+  if (rows.length + additions.length > 100)
+    throw new Error("Start a fresh session to load the sample activity.");
+  for (const example of additions) {
+    for (const key of [example.clientKey, example.candidateKey]) {
+      const profile = await ctx.db
+        .query("deskProfiles")
+        .withIndex("by_key", (q) => q.eq("key", key))
+        .unique();
+      if (!profile)
+        throw new Error("The sample profile library is not ready yet.");
+    }
+    await ctx.db.insert("deskIntroductions", { session: token, ...example });
+  }
+  return additions.length;
+}
 export const createSession = mutation({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
+  args: { token: v.string(), withExamples: v.optional(v.boolean()) },
+  handler: async (ctx, { token, withExamples }) => {
     if (!/^[0-9a-f-]{72}$/.test(token))
       throw new Error("Invalid demo session token.");
-    if (
-      await ctx.db
-        .query("deskSessions")
-        .withIndex("by_token", (q) => q.eq("token", token))
-        .unique()
-    )
-      throw new Error("Create a fresh session token.");
+    const existing = await ctx.db
+      .query("deskSessions")
+      .withIndex("by_token", (q) => q.eq("token", token))
+      .unique();
+    if (existing) {
+      if (existing.expiresAt < Date.now())
+        throw new Error("Your demo session expired. Start a new session.");
+      // Safe to retry initialization; never duplicate examples or replace reviewer work.
+      if (withExamples) {
+        const first = await ctx.db
+          .query("deskIntroductions")
+          .withIndex("by_session", (q) => q.eq("session", token))
+          .first();
+        if (!first) await addExamples(ctx, token);
+      }
+      return token;
+    }
     await ctx.db.insert("deskSessions", {
       token,
       createdAt: Date.now(),
       expiresAt: Date.now() + 7 * 86400000,
     });
+    if (withExamples) await addExamples(ctx, token);
     return token;
+  },
+});
+export const loadExamples = mutation({
+  args: { token: v.string() },
+  handler: async (ctx, { token }) => {
+    await session(ctx, token);
+    return await addExamples(ctx, token);
   },
 });
 export const list = query({
@@ -94,8 +142,7 @@ export const create = mutation({
         .query("deskProfiles")
         .withIndex("by_key", (q) => q.eq("key", key))
         .unique();
-      if (!row)
-        throw new Error("Choose a profile from the demo library.");
+      if (!row) throw new Error("Choose a profile from the demo library.");
       people.push(row.profile);
     }
     if (!people[0].gender || !people[1].gender)

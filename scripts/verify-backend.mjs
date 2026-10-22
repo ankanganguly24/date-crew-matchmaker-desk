@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 const client = new ConvexHttpClient("https://greedy-raccoon-528.convex.cloud"),
   api = anyApi;
 const token = crypto.randomUUID() + crypto.randomUUID(),
-  other = crypto.randomUUID() + crypto.randomUUID();
+  other = crypto.randomUUID() + crypto.randomUUID(),
+  exampleToken = crypto.randomUUID() + crypto.randomUUID();
 assert.equal(await client.query(api.library.count, {}), 1500);
 const profile = await client.query(api.library.get, { key: "TDC-0001" });
 assert.equal(profile.gender, "woman");
@@ -56,6 +57,57 @@ const [intro] = await client.query(api.workspace.list, { token });
 assert.equal(intro.events.at(-1).type, "met");
 assert.ok(!intro.events.some((e) => e.type === "contacts"));
 assert.ok(!("session" in intro));
+await client.mutation(api.workspace.createSession, {
+  token: exampleToken,
+  withExamples: true,
+});
+let examples = await client.query(api.workspace.list, { token: exampleToken });
+assert.equal(examples.length, 6);
+assert.ok(examples.every((i) => i.isSample));
+assert.equal(
+  examples.filter((i) =>
+    ["client", "candidate"].every((subject) =>
+      i.events.some((e) => e.type === "accepted" && e.subject === subject),
+    ),
+  ).length,
+  3,
+);
+assert.equal(
+  examples.filter((i) => i.events.some((e) => e.type === "met")).length,
+  1,
+);
+await client.mutation(api.workspace.createSession, {
+  token: exampleToken,
+  withExamples: true,
+});
+assert.equal(
+  await client.mutation(api.workspace.loadExamples, { token: exampleToken }),
+  0,
+);
+assert.equal(
+  (await client.query(api.workspace.list, { token: exampleToken })).length,
+  6,
+);
+assert.deepEqual(await client.query(api.workspace.list, { token: other }), []);
+await assert.rejects(
+  client.mutation(api.workspace.record, {
+    token: other,
+    key: examples[0].key,
+    type: "met",
+    note: "Must not edit someone else's sample.",
+  }),
+);
+await client.mutation(api.workspace.record, {
+  token: exampleToken,
+  key: "sample-undecided",
+  type: "note",
+  note: "Reviewer tested editing a private example.",
+});
+examples = await client.query(api.workspace.list, { token: exampleToken });
+assert.equal(
+  examples.find((i) => i.key === "sample-undecided").events.at(-1).type,
+  "note",
+);
 console.log(
-  "Verified: 1,500 gendered profiles; top-five and low-supply recommendations; same-gender introduction blocked; empty initial session; cross-session isolation; direct meeting; session token not exported.",
+  "Verified: 1,500 profiles; shortlist and fallback; gender enforcement; empty mode; direct meeting; six labeled examples; repeat initialization without duplicates; editable private copies; cross-session isolation; no session token in exports.",
 );

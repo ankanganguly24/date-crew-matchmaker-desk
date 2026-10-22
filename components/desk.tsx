@@ -7,7 +7,7 @@ import {
   useMutation,
 } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import {
   ArrowUpRight,
   ArrowRight,
@@ -175,9 +175,9 @@ function Workbench() {
   const clients = useQuery(api.library.clients, {}) as Profile[] | undefined,
     client = useQuery(api.library.get, { key: clientKey }) as
       Profile | undefined;
-  const recommendations = useQuery(api.library.recommendations, { clientKey }) as
-    | MatchResults
-    | undefined;
+  const recommendations = useQuery(api.library.recommendations, {
+    clientKey,
+  }) as MatchResults | undefined;
   const candidate = useQuery(
     api.library.get,
     candidateKey ? { key: candidateKey } : "skip",
@@ -188,16 +188,39 @@ function Workbench() {
     { initialNumItems: 30 },
   );
   const createSession = useMutation(api.workspace.createSession),
-    create = useMutation(api.workspace.create);
+    create = useMutation(api.workspace.create),
+    loadExamples = useMutation(api.workspace.loadExamples);
   const introductions = useQuery(
     api.workspace.list,
     token ? { token } : "skip",
   ) as Introduction[] | undefined;
+  const ensureSession = useCallback(async () => {
+    const withExamples =
+      localStorage.getItem("tdc-desk-example-mode") !== "empty";
+    let next =
+      localStorage.getItem("tdc-desk-session") ||
+      crypto.randomUUID() + crypto.randomUUID();
+    // Persist before awaiting so repeated initialization uses the same token.
+    localStorage.setItem("tdc-desk-session", next);
+    try {
+      await createSession({ token: next, withExamples });
+    } catch (e) {
+      if (!message(e).includes("session expired")) throw e;
+      const current = localStorage.getItem("tdc-desk-session");
+      next =
+        current && current !== next
+          ? current
+          : crypto.randomUUID() + crypto.randomUUID();
+      localStorage.setItem("tdc-desk-session", next);
+      await createSession({ token: next, withExamples });
+    }
+    setToken(next);
+    return next;
+  }, [createSession]);
   useEffect(() => {
-    const saved = localStorage.getItem("tdc-desk-session");
-    if (saved) setToken(saved);
     setShowAbout(sessionStorage.getItem("tdc-guide-dismissed:v1") !== "true");
-  }, []);
+    void ensureSession().catch((e) => setError(message(e)));
+  }, [ensureSession]);
   const closeGuide = () => {
     setShowAbout(false);
     sessionStorage.setItem("tdc-guide-dismissed:v1", "true");
@@ -207,17 +230,19 @@ function Workbench() {
     const t = setTimeout(() => setToast(""), 4500);
     return () => clearTimeout(t);
   }, [toast]);
-  const ensureSession = async () => {
-    if (token) return token;
-    const next = await createSession({
-      token: crypto.randomUUID() + crypto.randomUUID(),
-    });
-    setToken(next);
-    localStorage.setItem("tdc-desk-session", next);
-    return next as string;
-  };
   const propose = async (note: string) => {
     if (!candidate) return;
+    const existing = introductions?.find(
+      (intro) =>
+        intro.clientKey === clientKey && intro.candidateKey === candidate.key,
+    );
+    if (existing) {
+      setCandidateKey(null);
+      setView("workspace");
+      setSelectedIntro(existing.key);
+      setToast("Opened the existing introduction for these two profiles.");
+      return;
+    }
     try {
       const t = await ensureSession();
       const key = await create({
@@ -234,14 +259,39 @@ function Workbench() {
       setError(message(e));
     }
   };
-  const reset = () => {
-    localStorage.removeItem("tdc-desk-session");
-    setToken("");
-    setSelectedIntro(null);
-    setToast(
-      "A fresh demo workspace is ready. The profile library stays unchanged.",
-    );
+  const reset = async () => {
+    try {
+      const next = crypto.randomUUID() + crypto.randomUUID();
+      await createSession({ token: next, withExamples: false });
+      localStorage.setItem("tdc-desk-session", next);
+      localStorage.setItem("tdc-desk-example-mode", "empty");
+      setToken(next);
+      setSelectedIntro(null);
+      setToast(
+        "An empty private workspace is ready. Load the examples again anytime.",
+      );
+    } catch (e) {
+      setError(message(e));
+    }
   };
+  const showExamples = async () => {
+    try {
+      const t = await ensureSession();
+      const count = await loadExamples({ token: t });
+      localStorage.setItem("tdc-desk-example-mode", "examples");
+      setView("workspace");
+      setSelectedIntro("sample-meeting");
+      setToast(
+        count
+          ? `${count} scripted examples added to your private workspace.`
+          : "The available examples are already in this workspace.",
+      );
+    } catch (e) {
+      setError(message(e));
+    }
+  };
+  const activity = diagnostics(introductions ?? []);
+  const sampleCount = introductions?.filter((i) => i.isSample).length ?? 0;
   const data = (results as Array<{ profile: Profile }>).map((r) => r.profile);
   return (
     <div className="app-shell">
@@ -329,14 +379,61 @@ function Workbench() {
         <main>
           {view === "library" ? (
             <>
+              <section
+                className="activity-preview"
+                aria-label="Workspace activity overview"
+              >
+                <div className="activity-preview-heading">
+                  <div>
+                    <span className="eyebrow">YOUR DESK AT A GLANCE</span>
+                    <strong>
+                      {introductions === undefined
+                        ? "Loading activity…"
+                        : sampleCount
+                          ? "Sample activity, ready to explore"
+                          : "Your introduction activity"}
+                    </strong>
+                    <small>
+                      {sampleCount
+                        ? `${sampleCount} scripted examples · ${activity.total - sampleCount} reviewer-created`
+                        : "Private to this browser’s demo workspace"}
+                    </small>
+                  </div>
+                  <button
+                    className="small-button"
+                    onClick={() => setView("workspace")}
+                  >
+                    View introductions <ArrowRight size={14} />
+                  </button>
+                </div>
+                <div className="activity-preview-stats">
+                  <div>
+                    <strong>{activity.total}</strong>
+                    <span>Introductions</span>
+                  </div>
+                  <div>
+                    <strong>{activity.mutual}</strong>
+                    <span>Both interested</span>
+                  </div>
+                  <div>
+                    <strong>{activity.contactsExchanged}</strong>
+                    <span>Contacts exchanged</span>
+                  </div>
+                  <div>
+                    <strong>{activity.met}</strong>
+                    <span>Meeting completed</span>
+                  </div>
+                  <button onClick={() => setView("analytics")}>
+                    My analytics <ArrowUpRight size={14} />
+                  </button>
+                </div>
+              </section>
               <div className="page-heading">
                 <div>
                   <div className="eyebrow">
                     THE RIGHT PEOPLE. THE FULL PICTURE.
                   </div>
-                  <h1>
-                    Find the next introduction.
-                  </h1>
+                  <h1>Find the next introduction.</h1>
                   <p>
                     Find the facts. Notice the differences. Make your own call.
                   </p>
@@ -404,7 +501,10 @@ function Workbench() {
                 <div className="recommendation-heading">
                   <div>
                     <div className="eyebrow">A SHORTLIST, WITH REASONS</div>
-                    <h2>Top 5 matches for {client?.name.split(" ")[0] ?? "this client"}</h2>
+                    <h2>
+                      Top 5 matches for{" "}
+                      {client?.name.split(" ")[0] ?? "this client"}
+                    </h2>
                     <p>
                       Opposite-gender profiles ranked by both people’s recorded
                       preferences. For this demo, a client is shown profiles of
@@ -413,11 +513,14 @@ function Workbench() {
                     </p>
                   </div>
                   <span className="recommendation-count">
-                    {recommendations?.strictCount ?? "…"} meet confirmed must-haves
+                    {recommendations?.strictCount ?? "…"} meet confirmed
+                    must-haves
                   </span>
                 </div>
                 {recommendations === undefined ? (
-                  <div className="recommendation-loading">Finding eligible profiles…</div>
+                  <div className="recommendation-loading">
+                    Finding eligible profiles…
+                  </div>
                 ) : recommendations.matches.length ? (
                   <div className="recommendation-grid">
                     {recommendations.matches.map((match, index) => (
@@ -443,9 +546,10 @@ function Workbench() {
                       <div>
                         <h3>Need more options? Worth a look</h3>
                         <p>
-                          There are fewer than five strict matches. These profiles
-                          have a visible confirmed must-have difference; review
-                          it with care before deciding whether to share.
+                          There are fewer than five strict matches. These
+                          profiles have a visible confirmed must-have
+                          difference; review it with care before deciding
+                          whether to share.
                         </p>
                       </div>
                       <span>Human review required</span>
@@ -466,7 +570,12 @@ function Workbench() {
               </section>
               <div className="section-bar">
                 <div>
-                  <h2>More eligible profiles <span>{recommendations?.eligibleCount.toLocaleString() ?? "…"}</span></h2>
+                  <h2>
+                    More eligible profiles{" "}
+                    <span>
+                      {recommendations?.eligibleCount.toLocaleString() ?? "…"}
+                    </span>
+                  </h2>
                   <p>
                     Browse all profiles of the other gender and make your own
                     call.
@@ -570,8 +679,8 @@ function Workbench() {
                     <Search size={28} />
                     <h2>No profiles found</h2>
                     <p>
-                      No eligible profiles match this search. An empty result
-                      is a supply signal; the separate “Worth a look” list shows
+                      No eligible profiles match this search. An empty result is
+                      a supply signal; the separate “Worth a look” list shows
                       any profiles with a confirmed preference difference.
                     </p>
                     <button
@@ -630,13 +739,18 @@ function Workbench() {
               <div className="workspace-notice">
                 <Info size={17} />
                 <p>
-                  Your workspace starts empty. Add an introduction from the
-                  library to try it. You can record a meeting directly—there is
-                  no required sequence and no overdue score.
+                  {sampleCount
+                    ? `${sampleCount} scripted examples and ${activity.total - sampleCount} reviewer-created introductions. `
+                    : "Your private demo workspace. "}
+                  Sample badges identify invented scenarios. You can edit your
+                  copy or start empty; nothing is sent to anyone.
                 </p>
-                <button onClick={reset} title="Start an empty session">
-                  <RotateCcw size={15} />
-                </button>
+                <div className="workspace-actions">
+                  <button onClick={showExamples}>Load sample activity</button>
+                  <button onClick={reset}>
+                    <RotateCcw size={15} /> Start empty
+                  </button>
+                </div>
               </div>
               {!introductions?.length ? (
                 <div className="empty-workspace">
@@ -644,11 +758,11 @@ function Workbench() {
                     <HeartHandshake size={42} />
                   </div>
                   <span className="eyebrow">A CLEAN START</span>
-                  <h2>No stories invented.</h2>
+                  <h2>Your empty workspace is ready.</h2>
                   <p>
-                    There are no fabricated acceptances, ghosting labels or
-                    meetings here. Choose two fictional people and make your
-                    first introduction.
+                    Choose two fictional people and make your first
+                    introduction, or load the sample activity above to explore a
+                    worked example.
                   </p>
                   <button
                     className="primary-button"
@@ -720,7 +834,11 @@ function message(e: unknown) {
     : "Something went wrong. Please try again.";
 }
 function genderLabel(gender?: Profile["gender"]) {
-  return gender === "man" ? "Man" : gender === "woman" ? "Woman" : "Gender not recorded";
+  return gender === "man"
+    ? "Man"
+    : gender === "woman"
+      ? "Woman"
+      : "Gender not recorded";
 }
 function RecommendationCard({
   match,
@@ -743,15 +861,20 @@ function RecommendationCard({
       <div className="recommendation-person">
         <Avatar profile={profile} />
         <div>
-          <h3>{profile.name}, {profile.age}</h3>
-          <p>{profile.role} · {profile.city}</p>
+          <h3>
+            {profile.name}, {profile.age}
+          </h3>
+          <p>
+            {profile.role} · {profile.city}
+          </p>
         </div>
       </div>
       <p className="recommendation-reason">
         {match.checked
           ? `${match.aligned} of ${match.checked} recorded preference facts align.`
           : "There are not enough recorded preferences to compare yet."}
-        {match.unknown > 0 && ` ${match.unknown} item${match.unknown === 1 ? " is" : "s are"} unknown or unconfirmed.`}
+        {match.unknown > 0 &&
+          ` ${match.unknown} item${match.unknown === 1 ? " is" : "s are"} unknown or unconfirmed.`}
       </p>
       {match.mustConflicts.length > 0 && (
         <div className="must-conflict-warning">
@@ -1007,6 +1130,9 @@ function IntroCard({
         <div>
           <h3>
             {client.name} <span>&</span> {candidate.name}
+            {intro.isSample && (
+              <span className="sample-badge">Sample scenario</span>
+            )}
           </h3>
           <p>
             {client.city} · {candidate.city}{" "}
@@ -1027,7 +1153,9 @@ function IntroCard({
           {intro.note && (
             <div className="original-note">
               <span className="eyebrow">
-                WHY YOU CONSIDERED THIS INTRODUCTION
+                {intro.isSample
+                  ? "SCRIPTED SCENARIO · NOT A REAL OUTCOME"
+                  : "WHY YOU CONSIDERED THIS INTRODUCTION"}
               </span>
               <p>{intro.note}</p>
             </div>
@@ -1153,8 +1281,11 @@ function EvidencePage({
   onReset: () => void;
 }) {
   const d = diagnostics(introductions);
+  const samples = introductions.filter((intro) => intro.isSample).length;
   const rate = (value: number) =>
-    d.total ? `${Math.round((value / d.total) * 100)}% of intros` : "No intros yet";
+    d.total
+      ? `${Math.round((value / d.total) * 100)}% of intros`
+      : "No intros yet";
   const activity = [
     ["At least one person said yes", d.eitherAccepted],
     ["Client accepted", d.clientAccepted],
@@ -1169,26 +1300,26 @@ function EvidencePage({
     ["Explicit decline recorded", d.declined],
   ] as const;
   const download = () => {
-      const blob = new Blob(
-        [
-          JSON.stringify(
-            {
-              notice: "Fictional assessment session; not company performance",
-              exportedAt: new Date().toISOString(),
-              introductions,
-            },
-            null,
-            2,
-          ),
-        ],
-        { type: "application/json" },
-      );
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = "my-demo-introductions.json";
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
+    const blob = new Blob(
+      [
+        JSON.stringify(
+          {
+            notice: "Fictional assessment session; not company performance",
+            exportedAt: new Date().toISOString(),
+            introductions,
+          },
+          null,
+          2,
+        ),
+      ],
+      { type: "application/json" },
+    );
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "my-demo-introductions.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
   return (
     <>
       <div className="page-heading compact">
@@ -1199,7 +1330,10 @@ function EvidencePage({
             <br />
             Every introduction.
           </h1>
-          <p>Counts from this matchmaker’s saved introductions and recorded events.</p>
+          <p>
+            Counts from this matchmaker’s saved introductions and recorded
+            events.
+          </p>
         </div>
         <button className="secondary-button" onClick={download}>
           <Download size={16} /> Export my session
@@ -1231,15 +1365,19 @@ function EvidencePage({
         <Info size={21} />
         <div>
           <h3>
-            {d.total === 0
-              ? "Your analytics will appear as you record real demo activity."
-              : "These are your activity counts, not a team leaderboard."}
+            {samples > 0
+              ? `${samples} scripted examples · ${d.total - samples} reviewer-created introductions`
+              : d.total === 0
+                ? "Your analytics will appear as you record real demo activity."
+                : "These are your activity counts, not a team leaderboard."}
           </h3>
           <p>
             Each number counts introductions with that event recorded. A missing
             entry means “not recorded here,” not that the event did not happen.
-            The sample profiles are fictional, so this view cannot prove business
-            impact or client satisfaction.
+            {samples > 0 &&
+              " Sample outcomes were deliberately scripted to show how the desk works. "}
+            All profiles are fictional; these counts are not company
+            performance, business impact or measured client satisfaction.
           </p>
         </div>
       </div>
@@ -1262,12 +1400,21 @@ function EvidencePage({
         </div>
         <div className="activity-reasons">
           <strong>Declines without a recorded reason</strong>
-          <span>{d.unknownDeclines} of {d.declineEvents} decline events</span>
+          <span>
+            {d.unknownDeclines} of {d.declineEvents} decline events
+          </span>
           {d.reasons.length > 0 && (
-            <small>Recorded reasons: {Object.entries(d.reasons.reduce<Record<string, number>>((counts, reason) => {
-              counts[reason] = (counts[reason] ?? 0) + 1;
-              return counts;
-            }, {})).map(([reason, count]) => `${reason} (${count})`).join(" · ")}</small>
+            <small>
+              Recorded reasons:{" "}
+              {Object.entries(
+                d.reasons.reduce<Record<string, number>>((counts, reason) => {
+                  counts[reason] = (counts[reason] ?? 0) + 1;
+                  return counts;
+                }, {}),
+              )
+                .map(([reason, count]) => `${reason} (${count})`)
+                .join(" · ")}
+            </small>
           )}
         </div>
       </section>
@@ -1518,8 +1665,9 @@ function AboutModal({ onClose }: { onClose: () => void }) {
           <HeartHandshake size={22} />
           <h3>Your own workspace</h3>
           <p>
-            Introductions start empty. Saved actions belong to your browser’s
-            unguessable demo session. No emails or notifications are sent.
+            New visitors get six labeled, scripted example introductions in a
+            private workspace. Edit your copy, or choose “Start empty.” No
+            emails or notifications are sent.
           </p>
         </div>
         <div>
@@ -1532,7 +1680,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
         </div>
         <div>
           <BarChart3 size={22} />
-          <h3>No manufactured success</h3>
+          <h3>No claims of business uplift</h3>
           <p>
             Demo activity cannot validate adoption, attraction or business
             uplift. There are no invented compatibility scores or staff
@@ -1545,9 +1693,15 @@ function AboutModal({ onClose }: { onClose: () => void }) {
         <ol>
           <li>Choose a client and start with the ranked top five.</li>
           <li>Open a profile to compare both people’s recorded preferences.</li>
-          <li>Use “Worth a look” only when supply is low; review every flagged difference.</li>
+          <li>
+            Use “Worth a look” only when supply is low; review every flagged
+            difference.
+          </li>
           <li>Save a private introduction draft. Nothing is sent.</li>
-          <li>Record what happens, then open “My analytics” for this matchmaker’s activity.</li>
+          <li>
+            Record what happens, then open “My analytics” for this matchmaker’s
+            activity.
+          </li>
         </ol>
       </div>
       <p className="modal-footnote">

@@ -64,6 +64,7 @@ export default defineSchema({
     clientKey: v.string(),
     candidateKey: v.string(),
     createdAt: v.number(),
+    isSample: v.optional(v.boolean()),
     note: v.string(),
     events: v.array(
       v.object({
