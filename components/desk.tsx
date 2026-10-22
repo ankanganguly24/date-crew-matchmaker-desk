@@ -1500,7 +1500,7 @@ function AboutModal({ onClose }: { onClose: () => void }) {
         <img
           className="walkthrough-gif"
           src="/guide/matchmaker-walkthrough.gif"
-          alt="Animated walkthrough: choose a client, review a profile, save a draft, record an outcome, and inspect the evidence."
+          alt="Animated walkthrough: choose a client, review a profile, save a draft, record an outcome, and inspect this matchmaker's activity."
           width={960}
           height={540}
         />
