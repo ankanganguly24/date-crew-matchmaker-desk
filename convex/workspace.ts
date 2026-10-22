@@ -88,14 +88,22 @@ export const create = mutation({
       )
     )
       throw new Error("This introduction is already in your workspace.");
-    for (const key of [args.clientKey, args.candidateKey])
-      if (
-        !(await ctx.db
-          .query("deskProfiles")
-          .withIndex("by_key", (q) => q.eq("key", key))
-          .unique())
-      )
+    const people = [];
+    for (const key of [args.clientKey, args.candidateKey]) {
+      const row = await ctx.db
+        .query("deskProfiles")
+        .withIndex("by_key", (q) => q.eq("key", key))
+        .unique();
+      if (!row)
         throw new Error("Choose a profile from the demo library.");
+      people.push(row.profile);
+    }
+    if (!people[0].gender || !people[1].gender)
+      throw new Error("Gender is not recorded for one of these profiles.");
+    if (people[0].gender === people[1].gender)
+      throw new Error(
+        "This demo only allows opposite-gender introductions. Choose a profile from the eligible match list.",
+      );
     const now = Date.now(),
       key = `intro-${now}-${Math.random().toString(36).slice(2)}`;
     await ctx.db.insert("deskIntroductions", {

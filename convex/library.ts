@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server";
 import { query } from "./_generated/server";
 import { v } from "convex/values";
+import { rankMatches } from "../lib/model";
 export const page = query({
   args: {
     paginationOpts: paginationOptsValidator,
@@ -55,4 +56,25 @@ export const count = query({
         .withIndex("by_key", (q) => q.eq("key", "profiles"))
         .unique()
     )?.count ?? 0,
+});
+export const recommendations = query({
+  args: { clientKey: v.string() },
+  handler: async (ctx, { clientKey }) => {
+    const clientRow = await ctx.db
+      .query("deskProfiles")
+      .withIndex("by_key", (q) => q.eq("key", clientKey))
+      .unique();
+    const client = clientRow?.profile;
+    if (!client?.gender)
+      return { matches: [], stretch: [], eligibleCount: 0, strictCount: 0 };
+    const targetGender = client.gender === "man" ? "woman" : "man";
+    const rows = await ctx.db
+      .query("deskProfiles")
+      .withIndex("by_gender", (q) => q.eq("gender", targetGender))
+      .take(1500);
+    return rankMatches(
+      client,
+      rows.map((row) => row.profile),
+    );
+  },
 });

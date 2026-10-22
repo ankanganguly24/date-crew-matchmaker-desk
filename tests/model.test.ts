@@ -5,6 +5,7 @@ import {
   parseIntake,
   summarizeIntro,
   diagnostics,
+  rankMatches,
   type Introduction,
 } from "../lib/model";
 import { makeProfiles } from "../lib/fixtures";
@@ -17,6 +18,25 @@ test("unknowns and flexible differences are not treated as a hard conflict", () 
   );
   assert.equal(checks.find((x) => x.field === "city")?.outcome, "difference");
   assert.ok(!checks.some((x) => x.outcome === "conflict"));
+});
+test("recommendations enforce opposite-gender eligibility and put must-have conflicts in the fallback", () => {
+  const profiles = makeProfiles(12);
+  const client = profiles[0];
+  const ranked = rankMatches(client, profiles);
+  assert.ok(ranked.matches.length > 0);
+  assert.ok(ranked.matches.length <= 5);
+  assert.ok(ranked.matches.every((match) => match.profile.gender !== client.gender));
+  assert.ok(ranked.matches.every((match) => match.mustConflicts.length === 0));
+  assert.ok(ranked.stretch.every((match) => match.mustConflicts.length > 0));
+  assert.ok(ranked.stretch.every((match) => match.profile.gender !== client.gender));
+});
+test("unknown gender is never guessed into a recommendation", () => {
+  const profiles = makeProfiles(4);
+  const client = profiles[0];
+  profiles[1].gender = undefined;
+  const ranked = rankMatches(client, profiles);
+  assert.ok(!ranked.matches.some((match) => match.profile.key === profiles[1].key));
+  assert.ok(!ranked.stretch.some((match) => match.profile.key === profiles[1].key));
 });
 test("a known confirmed smoking conflict is explicit and traceable", () => {
   const [a, b] = makeProfiles(2);
@@ -44,10 +64,21 @@ test("one person accepting does not imply mutual interest; meeting can occur wit
 test("empty demo has no fabricated introduction outcomes", () =>
   assert.deepEqual(diagnostics([]), {
     total: 0,
+    clientAccepted: 0,
+    candidateAccepted: 0,
+    eitherAccepted: 0,
     mutual: 0,
     met: 0,
     unknownReasons: 0,
     reasons: [],
+    contactConsentRecorded: 0,
+    mutualConsent: 0,
+    contactsExchanged: 0,
+    conversations: 0,
+    meetingsArranged: 0,
+    declined: 0,
+    declineEvents: 0,
+    unknownDeclines: 0,
   }));
 test("unrecorded reasons stay unknown", () => {
   const i: Introduction = {
@@ -69,7 +100,7 @@ test("unrecorded reasons stay unknown", () => {
 });
 test("import validates adult age and keeps absent facts absent", () => {
   assert.throws(() => parseIntake('[{"name":"A","age":17,"city":"Pune"}]'));
-  const [p] = parseIntake('[{"name":"A B","age":30,"city":"Pune"}]');
+  const [p] = parseIntake('[{"name":"A B","age":30,"city":"Pune","gender":"woman"}]');
   assert.equal(p.facts.children, undefined);
   assert.deepEqual(p.preferences, []);
 });

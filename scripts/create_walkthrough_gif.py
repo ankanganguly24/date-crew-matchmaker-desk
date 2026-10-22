@@ -6,11 +6,11 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 GUIDE = ROOT / "public" / "guide"
 FRAMES = [
-    ("01-profiles.png", "1   Browse fictional profiles"),
-    ("02-review.png", "2   Compare facts and preferences"),
-    ("03-private-draft.png", "3   Save a private introduction draft"),
-    ("04-meeting-recorded.png", "4   Record an outcome when known"),
-    ("05-evidence.png", "5   Check what the evidence can say"),
+    ("01-profiles.png", "1   Start with five evidence-led matches"),
+    ("02-review.png", "2   See alternatives when the pool is thin"),
+    ("03-private-draft.png", "3   Review any must-have difference"),
+    ("04-meeting-recorded.png", "4   Record what actually happened"),
+    ("05-evidence.png", "5   Review this matchmaker's activity"),
 ]
 
 font_path = "/System/Library/Fonts/Supplemental/Arial Bold.ttf"

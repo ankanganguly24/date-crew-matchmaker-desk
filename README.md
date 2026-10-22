@@ -4,18 +4,19 @@ An independent assessment prototype built with **Next.js, TypeScript and Convex*
 
 ## What this tests
 
-Can a matchmaker find recorded facts, distinguish an explicit requirement from a flexible preference, and keep useful evidence about an introduction without being forced through a pipeline?
+Can a solo matchmaker find a short, explainable list from recorded facts, keep low-supply alternatives visible, and see their own introduction activity without being forced through a pipeline?
 
 The prototype demonstrates a workflow. It does **not** establish adoption, business uplift, chemistry, accuracy of real intake records or savings in staff time.
 
 ## Try it
 
-1. Choose a fictional client and review a candidate. Open the original intake or a preference's source quote.
-2. Notice the difference between a confirmed conflict, a flexible difference, missing information and an unconfirmed preference. Unknowns do not stop a private draft.
-3. Save an introduction. This only creates a draft in your demo session. No profiles, emails or contact details are sent.
-4. Record a meeting directly, without contacts or earlier events. Each person's interest can be recorded separately. No response is never automatically converted to a rejection.
-5. Open **What we know**. Counts describe your own reviewer actions, not company results. There are no staff rankings or speed targets.
-6. Try an intake import. The example is JSON because this build has no verified CRM export contract. The preview stays in the browser, exposes missing fields, and does not modify the shared library. Real email, WhatsApp or call capture is not implemented.
+1. Choose a fictional client. The desk shows up to five opposite-gender profiles that meet both people's confirmed must-haves, ranked by the number of recorded preference facts that align.
+2. If there are fewer than five strict matches, review a separate “Worth a look” list. It labels confirmed must-have differences; they are not presented as matches, and saving one requires an explicit acknowledgement.
+3. Open a profile to inspect original intake facts and source quotes. Unknowns are not treated as a rejection or silently guessed.
+4. Save an introduction. This only creates a draft in your demo session. No profiles, emails or contact details are sent.
+5. Record an outcome whenever it happens, in any order. Each person's interest and contact permission are tracked separately; no response is not automatically a rejection.
+6. Open **My analytics** for this matchmaker's counts: interest, mutual consent, contact exchange, conversations, meetings and declines. This is an individual session view, not a team leaderboard.
+7. Try an intake import. The example is JSON because this build has no verified CRM export contract. The preview stays in the browser, exposes missing fields, and does not modify the shared library. Real email, WhatsApp or call capture is not implemented.
 
 ## Run locally
 
@@ -41,10 +42,10 @@ The static Next.js build is written to `out/`. All database operations run in Co
 
 ## Data and architecture
 
-- `lib/model.ts`: comparison rules, intake validation and evidence summaries.
-- `lib/fixtures.ts`: deterministic fictional intake records. No real photos, email addresses, caste or inferred income.
-- `convex/schema.ts`: namespaced typed tables and search/index definitions.
-- `convex/library.ts`: indexed profile lookup and cursor-paginated search.
+- `lib/model.ts`: explainable match ranking, intake validation and individual activity summaries.
+- `lib/fixtures.ts`: deterministic fictional intake records with an explicit demo gender field. No real photos, email addresses, caste or inferred income.
+- `convex/schema.ts`: namespaced typed tables, gender eligibility and search/index definitions.
+- `convex/library.ts`: indexed profile lookup, gender-filtered recommendations and cursor-paginated search.
 - `convex/workspace.ts`: backend-validated, session-scoped draft and event writes.
 - `convex/seed.ts`: internal, idempotent 100-profile seed batches. It cannot be called by an anonymous frontend visitor.
 - `components/desk.tsx`: library, review, introduction workspace, import preview and evidence views.
@@ -66,6 +67,8 @@ To rebuild the walkthrough GIF after updating its captured screens, run `python3
 - The connected Convex deployment is a **development deployment**, intentionally used for this assessment. A publicly reachable demo is not a production rollout.
 - An unguessable browser-generated bearer token separates demo sessions. This is **not staff authentication**. It is suitable only for fictional assessment data; staff identity and authorization are required for operational use.
 - A saved draft with an acknowledged conflict does not override a client requirement or grant permission to share anything.
+- The demo assumes clients seek profiles of the other gender and uses only “man” and “woman” for its fictional seed data. It is not a general orientation model. A real product needs each client's explicitly stated match preference and inclusive options.
+- Ranking uses only recorded preference facts and applies no attraction or relationship prediction. If fewer than five profiles meet confirmed must-haves, the separate fallback contains confirmed must-have conflicts for a human to judge; a pilot must verify this is acceptable to clients.
 - Events are recorded when the reviewer clicks; they are **not verified occurrence timestamps**. The build therefore does not calculate business waiting-time metrics or a conversion lift from these records.
 - No AI model infers preferences, attraction, willingness, hidden rejection reasons or sensitive attributes. A real feedback extraction feature would need source access, consent, evaluation data and a provider/budget decision first.
 - The intake preview deliberately does not claim to eliminate input work. A live pilot must measure collection, correction, retrieval and review time together, plus false exclusions and client feedback.

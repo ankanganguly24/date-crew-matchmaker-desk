@@ -14,11 +14,21 @@ export const profiles = mutation({
         .query("deskProfiles")
         .withIndex("by_key", (q) => q.eq("key", p.key))
         .unique();
-      if (!existing) {
+      const searchText = `${p.name} ${p.role} ${p.key} ${p.interests.join(" ")}`;
+      if (existing) {
+        // Upgrade the existing fictional sample set with the explicit gender field.
+        await ctx.db.patch(existing._id, {
+          city: p.city,
+          gender: p.gender,
+          searchText,
+          profile: p,
+        });
+      } else {
         await ctx.db.insert("deskProfiles", {
           key: p.key,
           city: p.city,
-          searchText: `${p.name} ${p.role} ${p.key} ${p.interests.join(" ")}`,
+          gender: p.gender,
+          searchText,
           profile: p,
         });
         inserted++;

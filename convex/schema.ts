@@ -21,6 +21,7 @@ const profile = v.object({
   key: v.string(),
   name: v.string(),
   age: v.number(),
+  gender: v.optional(v.union(v.literal("man"), v.literal("woman"))),
   city: v.string(),
   role: v.string(),
   initials: v.string(),
@@ -36,11 +37,13 @@ export default defineSchema({
   deskProfiles: defineTable({
     key: v.string(),
     city: v.string(),
+    gender: v.optional(v.union(v.literal("man"), v.literal("woman"))),
     searchText: v.string(),
     profile,
   })
     .index("by_key", ["key"])
     .index("by_city", ["city"])
+    .index("by_gender", ["gender"])
     .searchIndex("search_profiles", {
       searchField: "searchText",
       filterFields: ["city"],

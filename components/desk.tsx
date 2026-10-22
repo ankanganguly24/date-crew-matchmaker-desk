@@ -47,12 +47,14 @@ import {
   diagnostics,
   parseIntake,
   type Profile,
+  type MatchResults,
+  type RankedProfile,
   type Introduction,
   type IntroEvent,
 } from "@/lib/model";
 const url = process.env.NEXT_PUBLIC_CONVEX_URL;
 const connection = url ? new ConvexReactClient(url) : null;
-type View = "library" | "workspace" | "evidence";
+type View = "library" | "workspace" | "analytics";
 const fieldNames: Record<string, string> = {
   city: "Location",
   smoking: "Smoking",
@@ -64,6 +66,7 @@ const sample = JSON.stringify(
       key: "sample-001",
       name: "Asha Rao",
       age: 32,
+      gender: "woman",
       city: "Mumbai",
       role: "Architect",
       smoking: "No",
@@ -169,10 +172,12 @@ function Workbench() {
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [selectedIntro, setSelectedIntro] = useState<string | null>(null);
-  const count = useQuery(api.library.count, {}),
-    clients = useQuery(api.library.clients, {}) as Profile[] | undefined,
+  const clients = useQuery(api.library.clients, {}) as Profile[] | undefined,
     client = useQuery(api.library.get, { key: clientKey }) as
       Profile | undefined;
+  const recommendations = useQuery(api.library.recommendations, { clientKey }) as
+    | MatchResults
+    | undefined;
   const candidate = useQuery(
     api.library.get,
     candidateKey ? { key: candidateKey } : "skip",
@@ -260,7 +265,7 @@ function Workbench() {
             [
               { id: "library", label: "Discover profiles", icon: Users },
               { id: "workspace", label: "Introductions", icon: HeartHandshake },
-              { id: "evidence", label: "What we know", icon: BarChart3 },
+              { id: "analytics", label: "My analytics", icon: BarChart3 },
             ] as const
           ).map((n) => (
             <button
@@ -292,10 +297,10 @@ function Workbench() {
           <BookOpen size={16} /> How to use this desk <ArrowRight size={14} />
         </button>
         <div className="account">
-          <span className="account-avatar">AG</span>
+          <span className="account-avatar">MK</span>
           <div>
-            <strong>Assessment workspace</strong>
-            <span>Your own demo session</span>
+            <strong>Matchmaker workspace</strong>
+            <span>Individual view</span>
           </div>
         </div>
       </aside>
@@ -308,7 +313,7 @@ function Workbench() {
                 ? "Discover profiles"
                 : view === "workspace"
                   ? "Introductions"
-                  : "What we know"}
+                  : "My analytics"}
             </strong>
           </div>
           <div className="top-right">
@@ -321,14 +326,6 @@ function Workbench() {
             </button>
           </div>
         </header>
-        <div className="demo-banner">
-          <span className="demo-dot" />
-          <strong>A working idea, with fictional people.</strong>
-          <span>All 1,500 profiles are made up. Outcomes start empty.</span>
-          <button onClick={() => setShowAbout(true)}>
-            See the boundaries <ArrowRight size={13} />
-          </button>
-        </div>
         <main>
           {view === "library" ? (
             <>
@@ -338,9 +335,7 @@ function Workbench() {
                     THE RIGHT PEOPLE. THE FULL PICTURE.
                   </div>
                   <h1>
-                    Good introductions
-                    <br />
-                    start with understanding.
+                    Find the next introduction.
                   </h1>
                   <p>
                     Find the facts. Notice the differences. Make your own call.
@@ -365,7 +360,7 @@ function Workbench() {
                     <strong>
                       {client?.name ?? "Loading client…"}{" "}
                       <span>
-                        {client?.age} · {client?.city}
+                        {client?.age} · {client?.gender} · {client?.city}
                       </span>
                     </strong>
                   </div>
@@ -388,26 +383,93 @@ function Workbench() {
                   <ChevronDown size={15} />
                 </label>
                 <div className="context-preferences">
-                  <span>
-                    <Check size={13} /> Non-smoker <small>must-have</small>
-                  </span>
-                  <span>
-                    <MapPin size={13} />
-                    {client?.city ?? "Location"} <small>flexible</small>
+                  {client?.preferences.map((preference) => (
+                    <span key={`${preference.field}-${preference.value}`}>
+                      {preference.field === "city" ? (
+                        <MapPin size={13} />
+                      ) : (
+                        <Check size={13} />
+                      )}
+                      {fieldNames[preference.field]}: {preference.value}
+                      <small>
+                        {preference.importance === "must"
+                          ? "must-have"
+                          : "preferred"}
+                      </small>
+                    </span>
+                  ))}
+                </div>
+              </section>
+              <section className="recommendations">
+                <div className="recommendation-heading">
+                  <div>
+                    <div className="eyebrow">A SHORTLIST, WITH REASONS</div>
+                    <h2>Top 5 matches for {client?.name.split(" ")[0] ?? "this client"}</h2>
+                    <p>
+                      Opposite-gender profiles ranked by both people’s recorded
+                      preferences. For this demo, a client is shown profiles of
+                      the other gender. This is a shortlist, not a chemistry
+                      score.
+                    </p>
+                  </div>
+                  <span className="recommendation-count">
+                    {recommendations?.strictCount ?? "…"} meet confirmed must-haves
                   </span>
                 </div>
+                {recommendations === undefined ? (
+                  <div className="recommendation-loading">Finding eligible profiles…</div>
+                ) : recommendations.matches.length ? (
+                  <div className="recommendation-grid">
+                    {recommendations.matches.map((match, index) => (
+                      <RecommendationCard
+                        key={match.profile.key}
+                        match={match}
+                        rank={index + 1}
+                        stretch={false}
+                        onReview={() => setCandidateKey(match.profile.key)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="recommendation-empty">
+                    No profiles currently meet every confirmed must-have.
+                    {recommendations.eligibleCount === 0 &&
+                      " No eligible profiles with gender recorded were found either."}
+                  </div>
+                )}
+                {!!recommendations?.stretch.length && (
+                  <div className="stretch-section">
+                    <div className="stretch-heading">
+                      <div>
+                        <h3>Need more options? Worth a look</h3>
+                        <p>
+                          There are fewer than five strict matches. These profiles
+                          have a visible confirmed must-have difference; review
+                          it with care before deciding whether to share.
+                        </p>
+                      </div>
+                      <span>Human review required</span>
+                    </div>
+                    <div className="recommendation-grid stretch-grid">
+                      {recommendations.stretch.map((match, index) => (
+                        <RecommendationCard
+                          key={match.profile.key}
+                          match={match}
+                          rank={index + 1}
+                          stretch
+                          onReview={() => setCandidateKey(match.profile.key)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </section>
               <div className="section-bar">
                 <div>
-                  <h2>
-                    The profile library{" "}
-                    <span>
-                      {count === undefined ? "…" : count.toLocaleString()}
-                    </span>
-                  </h2>
+                  <h2>More eligible profiles <span>{recommendations?.eligibleCount.toLocaleString() ?? "…"}</span></h2>
                   <p>
-                    Imported fictional intake records. No inferred compatibility
-                    scores.
+                    Browse all profiles of the other gender and make your own
+                    call.
                   </p>
                 </div>
                 <span className="source-caption">
@@ -457,7 +519,13 @@ function Workbench() {
                       <div className="profile-card skeleton" key={i} />
                     ))
                   : data
-                      .filter((p) => p.key !== clientKey)
+                      .filter(
+                        (p) =>
+                          p.key !== clientKey &&
+                          !!client?.gender &&
+                          !!p.gender &&
+                          p.gender !== client.gender,
+                      )
                       .map((p) => (
                         <article className="profile-card" key={p.key}>
                           <div className="profile-top">
@@ -468,7 +536,10 @@ function Workbench() {
                             {p.name}
                             <span>{p.age}</span>
                           </h3>
-                          <p className="role">{p.role}</p>
+                          <div className="profile-meta">
+                            <Pill>{genderLabel(p.gender)}</Pill>
+                            <p className="role">{p.role}</p>
+                          </div>
                           <div className="location">
                             <MapPin size={13} />
                             {p.city}
@@ -499,9 +570,9 @@ function Workbench() {
                     <Search size={28} />
                     <h2>No profiles found</h2>
                     <p>
-                      Try a different name or location. An empty result is a
-                      supply signal, not a reason to loosen a client’s
-                      requirements.
+                      No eligible profiles match this search. An empty result
+                      is a supply signal; the separate “Worth a look” list shows
+                      any profiles with a confirmed preference difference.
                     </p>
                     <button
                       className="small-button"
@@ -648,6 +719,52 @@ function message(e: unknown) {
     ? e.message.replace(/\[CONVEX[^\]]*\]\s*/g, "").slice(0, 400)
     : "Something went wrong. Please try again.";
 }
+function genderLabel(gender?: Profile["gender"]) {
+  return gender === "man" ? "Man" : gender === "woman" ? "Woman" : "Gender not recorded";
+}
+function RecommendationCard({
+  match,
+  rank,
+  stretch,
+  onReview,
+}: {
+  match: RankedProfile;
+  rank: number;
+  stretch: boolean;
+  onReview: () => void;
+}) {
+  const profile = match.profile;
+  return (
+    <article className={`recommendation-card${stretch ? " is-stretch" : ""}`}>
+      <div className="recommendation-card-top">
+        <span>{stretch ? "Option" : `#${rank} recommendation`}</span>
+        <Pill>{genderLabel(profile.gender)}</Pill>
+      </div>
+      <div className="recommendation-person">
+        <Avatar profile={profile} />
+        <div>
+          <h3>{profile.name}, {profile.age}</h3>
+          <p>{profile.role} · {profile.city}</p>
+        </div>
+      </div>
+      <p className="recommendation-reason">
+        {match.checked
+          ? `${match.aligned} of ${match.checked} recorded preference facts align.`
+          : "There are not enough recorded preferences to compare yet."}
+        {match.unknown > 0 && ` ${match.unknown} item${match.unknown === 1 ? " is" : "s are"} unknown or unconfirmed.`}
+      </p>
+      {match.mustConflicts.length > 0 && (
+        <div className="must-conflict-warning">
+          {match.mustConflicts.length} confirmed must-have difference
+          {match.mustConflicts.length === 1 ? "" : "s"} — review before sharing
+        </div>
+      )}
+      <button className="small-button" onClick={onReview}>
+        Review facts <ArrowUpRight size={14} />
+      </button>
+    </article>
+  );
+}
 function ReviewModal({
   client,
   candidate,
@@ -675,7 +792,7 @@ function ReviewModal({
           <Avatar profile={client} size="lg" />
           <h3>{client.name}</h3>
           <p>
-            {client.age} · {client.city}
+            {client.age} · {genderLabel(client.gender)} · {client.city}
           </p>
           <small>Your selected client</small>
         </div>
@@ -684,7 +801,7 @@ function ReviewModal({
           <Avatar profile={candidate} size="lg" />
           <h3>{candidate.name}</h3>
           <p>
-            {candidate.age} · {candidate.city}
+            {candidate.age} · {genderLabel(candidate.gender)} · {candidate.city}
           </p>
           <small>Fictional candidate</small>
         </div>
@@ -715,6 +832,7 @@ function ReviewModal({
               {
                 name: candidate.name,
                 age: candidate.age,
+                gender: candidate.gender,
                 facts: candidate.facts,
                 preferences: candidate.preferences,
               },
@@ -1034,8 +1152,23 @@ function EvidencePage({
   introductions: Introduction[];
   onReset: () => void;
 }) {
-  const d = diagnostics(introductions),
-    download = () => {
+  const d = diagnostics(introductions);
+  const rate = (value: number) =>
+    d.total ? `${Math.round((value / d.total) * 100)}% of intros` : "No intros yet";
+  const activity = [
+    ["At least one person said yes", d.eitherAccepted],
+    ["Client accepted", d.clientAccepted],
+    ["Candidate accepted", d.candidateAccepted],
+    ["Both people said yes", d.mutual],
+    ["Contact permission recorded", d.contactConsentRecorded],
+    ["Both gave contact permission", d.mutualConsent],
+    ["Contacts exchanged", d.contactsExchanged],
+    ["Conversation recorded", d.conversations],
+    ["Meeting arranged", d.meetingsArranged],
+    ["Meeting completed", d.met],
+    ["Explicit decline recorded", d.declined],
+  ] as const;
+  const download = () => {
       const blob = new Blob(
         [
           JSON.stringify(
@@ -1060,13 +1193,13 @@ function EvidencePage({
     <>
       <div className="page-heading compact">
         <div>
-          <div className="eyebrow">EVIDENCE BEFORE CONFIDENCE</div>
+          <div className="eyebrow">YOUR INDIVIDUAL MATCHMAKER VIEW</div>
           <h1>
-            Useful signals.
+            My activity.
             <br />
-            Honest limitations.
+            Every introduction.
           </h1>
-          <p>Activity from your session, not a claim about The Date Crew.</p>
+          <p>Counts from this matchmaker’s saved introductions and recorded events.</p>
         </div>
         <button className="secondary-button" onClick={download}>
           <Download size={16} /> Export my session
@@ -1074,36 +1207,70 @@ function EvidencePage({
       </div>
       <div className="metric-grid">
         <div>
-          <span>Introductions you created</span>
+          <span>Introductions created</span>
           <strong>{d.total}</strong>
-          <small>No seeded history</small>
+          <small>This individual workspace</small>
         </div>
         <div>
-          <span>Both people said yes</span>
+          <span>Mutual interest recorded</span>
           <strong>{d.mutual}</strong>
-          <small>Two separate recorded decisions</small>
+          <small>{rate(d.mutual)}</small>
         </div>
         <div>
-          <span>Meetings recorded</span>
+          <span>Contacts exchanged</span>
+          <strong>{d.contactsExchanged}</strong>
+          <small>{rate(d.contactsExchanged)}</small>
+        </div>
+        <div>
+          <span>Meetings completed</span>
           <strong>{d.met}</strong>
-          <small>No earlier steps required</small>
+          <small>{rate(d.met)}</small>
         </div>
       </div>
       <div className="evidence-callout">
         <Info size={21} />
         <div>
           <h3>
-            {d.total < 20
-              ? "Too little evidence to claim an improvement."
-              : "Demo activity is not a business experiment."}
+            {d.total === 0
+              ? "Your analytics will appear as you record real demo activity."
+              : "These are your activity counts, not a team leaderboard."}
           </h3>
           <p>
-            These counts describe reviewer actions with fictional people. They
-            do not establish acceptance uplift, statistical significance or
-            client satisfaction. Missing records do not mean a step failed.
+            Each number counts introductions with that event recorded. A missing
+            entry means “not recorded here,” not that the event did not happen.
+            The sample profiles are fictional, so this view cannot prove business
+            impact or client satisfaction.
           </p>
         </div>
       </div>
+      <section className="paper activity-paper">
+        <div className="activity-heading">
+          <div>
+            <h2>Introduction activity</h2>
+            <p>Unique introductions with each event in your workspace.</p>
+          </div>
+          <span>Out of {d.total} introductions</span>
+        </div>
+        <div className="activity-list">
+          {activity.map(([label, count]) => (
+            <div className="activity-row" key={label}>
+              <span>{label}</span>
+              <strong>{count}</strong>
+              <small>{rate(count)}</small>
+            </div>
+          ))}
+        </div>
+        <div className="activity-reasons">
+          <strong>Declines without a recorded reason</strong>
+          <span>{d.unknownDeclines} of {d.declineEvents} decline events</span>
+          {d.reasons.length > 0 && (
+            <small>Recorded reasons: {Object.entries(d.reasons.reduce<Record<string, number>>((counts, reason) => {
+              counts[reason] = (counts[reason] ?? 0) + 1;
+              return counts;
+            }, {})).map(([reason, count]) => `${reason} (${count})`).join(" · ")}</small>
+          )}
+        </div>
+      </section>
       <div className="evidence-columns">
         <section className="paper">
           <h2>What would we investigate?</h2>
@@ -1376,11 +1543,11 @@ function AboutModal({ onClose }: { onClose: () => void }) {
       <div className="about-walkthrough">
         <h3>Try the same steps yourself</h3>
         <ol>
-          <li>Pick a client and open a profile to review.</li>
-          <li>Compare confirmed facts, flexible preferences and unknowns.</li>
-          <li>Save a private draft. Nothing is sent.</li>
-          <li>Record an outcome when you know it; there is no required order.</li>
-          <li>Open “What we know” to see what the demo can and cannot tell us.</li>
+          <li>Choose a client and start with the ranked top five.</li>
+          <li>Open a profile to compare both people’s recorded preferences.</li>
+          <li>Use “Worth a look” only when supply is low; review every flagged difference.</li>
+          <li>Save a private introduction draft. Nothing is sent.</li>
+          <li>Record what happens, then open “My analytics” for this matchmaker’s activity.</li>
         </ol>
       </div>
       <p className="modal-footnote">
