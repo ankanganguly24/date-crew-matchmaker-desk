@@ -29,6 +29,8 @@ npm run dev
 
 The supplied environment example points to the authorized fictional-data demo backend. To deploy your own backend, log into Convex and configure your own project using `npx convex dev --configure existing`, then update the public frontend URL. Never commit an access token or deployment key.
 
+The Vercel project builds this static Next.js frontend from `main`. Its Production environment must define `NEXT_PUBLIC_CONVEX_URL`; the current value points to the Convex **development** deployment used for this fictional assessment. It is not a production database for client records. `CONVEX_DEPLOYMENT` is used only by local Convex developer and seed commands, not by the browser bundle.
+
 ```sh
 npm test
 npm run typecheck
@@ -47,6 +49,7 @@ The static Next.js build is written to `out/`. All database operations run in Co
 - `convex/seed.ts`: internal, idempotent 100-profile seed batches. It cannot be called by an anonymous frontend visitor.
 - `components/desk.tsx`: library, review, introduction workspace, import preview and evidence views.
 - `app/globals.css`: responsive design inspired by The Date Crew's cream, forest green and gold palette.
+- `public/guide/`: captured product screens and the looping GIF shown in the first-visit walkthrough and the persistent dashboard guide.
 
 To seed the authorized demo deployment after deploying functions:
 
@@ -55,6 +58,8 @@ node scripts/seed.mjs
 ```
 
 The seed adds missing profiles only. It does not delete unrelated tables, overwrite real records or create historical introduction outcomes. `node scripts/verify-backend.mjs` performs a live integration check using its own fictional-data sessions.
+
+To rebuild the walkthrough GIF after updating its captured screens, run `python3 scripts/create_walkthrough_gif.py`.
 
 ## Critical limitations
 

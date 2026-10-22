@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Libre+Caslon+Display&display=swap");
 :root {
   --paper: #f8f7f3;
   --white: #fff;
@@ -9,7 +8,7 @@
   --line: #e5e6df;
   --gold: #a8884b;
   --cream: #eee9df;
-  --font: "DM Sans", Arial, sans-serif;
+  --font: Arial, "Helvetica Neue", sans-serif;
 }
 * {
   box-sizing: border-box;
@@ -85,7 +84,7 @@ button:active:not(:disabled) {
   align-items: center;
   gap: 10px;
   text-decoration: none;
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-weight: 600;
   font-size: 20px;
   letter-spacing: -0.6px;
@@ -98,7 +97,7 @@ button:active:not(:disabled) {
   border-radius: 50%;
   background: var(--gold);
   color: white;
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-weight: 400;
   letter-spacing: -1px;
 }
@@ -161,7 +160,7 @@ nav {
   color: var(--gold);
 }
 .sidebar-note h3 {
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-weight: 400;
   line-height: 1.6;
   font-size: 16px;
@@ -322,7 +321,7 @@ main {
   line-height: 1.5;
 }
 h1 {
-  font-family: "Libre Caslon Display", Georgia, serif;
+  font-family: var(--font);
   font-size: 48px;
   font-weight: 400;
   letter-spacing: -1.3px;
@@ -582,7 +581,7 @@ textarea::placeholder {
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-size: 20px;
   flex-shrink: 0;
   width: 49px;
@@ -780,7 +779,7 @@ textarea::placeholder {
   margin-bottom: 24px;
 }
 .empty-workspace h2 {
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-size: 29px;
   font-weight: 400;
   color: var(--green);
@@ -1038,7 +1037,7 @@ textarea {
   display: block;
 }
 .metric-grid strong {
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-size: 40px;
   font-weight: 400;
   display: block;
@@ -1089,7 +1088,7 @@ textarea {
 }
 .paper h2,
 .sources-paper h2 {
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-size: 20px;
   font-weight: 400;
   color: var(--green);
@@ -1122,7 +1121,7 @@ textarea {
   margin: 20px 0;
   background: #f5f5ed;
   border-radius: 5px;
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-size: 16px;
   color: #8b956f;
   text-align: center;
@@ -1206,7 +1205,7 @@ textarea {
   margin-bottom: 23px;
 }
 .modal-top h2 {
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-size: 25px;
   color: var(--green);
   font-weight: 400;
@@ -1570,7 +1569,7 @@ textarea {
   margin-top: 22px;
 }
 .about-walkthrough h3 {
-  font-family: Georgia, serif;
+  font-family: var(--font);
   font-weight: 400;
   font-size: 20px;
   color: var(--green);
@@ -1620,8 +1619,7 @@ textarea {
 }
 .empty-state h2 {
   font:
-    25px Georgia,
-    serif;
+    25px var(--font);
   color: #7b9267;
 }
 .empty-state p {
@@ -1640,6 +1638,146 @@ textarea {
 }
 .setup h1 {
   margin-bottom: 30px;
+}
+
+/* Readability pass: use familiar system lettering and give small controls room. */
+body {
+  font-family: var(--font);
+  font-size: 15px;
+}
+h1,
+.modal-top h2,
+.about-walkthrough h3,
+.empty-state h2 {
+  font-family: var(--font);
+  font-weight: 600;
+  letter-spacing: -0.7px;
+}
+.eyebrow,
+.brand-caption,
+.space-label {
+  font-size: 10px;
+}
+.nav-item {
+  font-size: 14px;
+}
+.breadcrumb {
+  font-size: 13px;
+}
+.connection,
+.small-button,
+.demo-banner,
+.demo-banner button {
+  font-size: 12px;
+}
+.page-heading p {
+  font-size: 15px;
+}
+.section-bar p,
+.source-caption,
+.profile-code,
+.profile-card h3 > span,
+.role,
+.location,
+.bio,
+.interests > span,
+.card-footer > span,
+.card-footer button,
+.bottom-note,
+.site-footer,
+.search-input input,
+.filter-select select,
+.filter-note {
+  font-size: 12px;
+  color: #515d52;
+}
+input::placeholder,
+textarea::placeholder {
+  color: #687267;
+}
+.review-pair small,
+.check-content small,
+.modal-footnote,
+.muted {
+  font-size: 11px;
+}
+.review-tabs > button,
+.review-explainer,
+.modal h4,
+.check-title strong,
+.check-content p,
+.quiet-note,
+.about-grid p,
+.about-walkthrough ol {
+  font-size: 14px;
+}
+.check-content details {
+  font-size: 12px;
+}
+.paper h2,
+.sources-paper h2,
+.cost-equation,
+.section-bar h2,
+.profile-card h3,
+.evidence-callout h3 {
+  font-family: var(--font);
+}
+.evidence-callout p,
+.research-row p,
+.paper > p,
+.plain-list li,
+.sources-paper a span,
+.sources-paper > p,
+.metric-grid span,
+.metric-grid small,
+.record-action > span {
+  font-size: 13px;
+  color: #4c594d;
+}
+.metric-grid strong {
+  font-family: var(--font);
+  font-weight: 600;
+}
+.review-pair p,
+.review-tabs > button,
+.review-explainer,
+.check-content p,
+.check-content details,
+.check-content small,
+.quiet-note,
+.modal-actions > span,
+.ack,
+.modal-footnote,
+.muted,
+.about-grid p,
+.about-walkthrough ol {
+  color: #4c594d;
+}
+.review-pair small {
+  color: #4c594d;
+}
+.walkthrough-gif {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+@media (max-width: 760px) {
+  .nav-item,
+  .breadcrumb,
+  .top-right .small-button,
+  .demo-banner,
+  .demo-banner button,
+  .demo-banner strong,
+  .page-heading p {
+    font-size: 12px;
+  }
+  .context-title .eyebrow,
+  .context-title strong > span {
+    font-size: 10px;
+  }
 }
 @keyframes shimmer {
   to {

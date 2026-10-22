@@ -191,7 +191,12 @@ function Workbench() {
   useEffect(() => {
     const saved = localStorage.getItem("tdc-desk-session");
     if (saved) setToken(saved);
+    setShowAbout(sessionStorage.getItem("tdc-guide-dismissed:v1") !== "true");
   }, []);
+  const closeGuide = () => {
+    setShowAbout(false);
+    sessionStorage.setItem("tdc-guide-dismissed:v1", "true");
+  };
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(""), 4500);
@@ -284,7 +289,7 @@ function Workbench() {
           </p>
         </div>
         <button className="help-link" onClick={() => setShowAbout(true)}>
-          <BookOpen size={16} /> About this prototype <ArrowUpRight size={14} />
+          <BookOpen size={16} /> How to use this desk <ArrowRight size={14} />
         </button>
         <div className="account">
           <span className="account-avatar">AG</span>
@@ -312,7 +317,7 @@ function Workbench() {
               Connected to Convex
             </span>
             <button className="small-button" onClick={() => setShowAbout(true)}>
-              Demo guide <ArrowUpRight size={13} />
+              Open guide <BookOpen size={14} />
             </button>
           </div>
         </header>
@@ -619,7 +624,7 @@ function Workbench() {
         />
       )}
       {showImport && <ImportModal onClose={() => setShowImport(false)} />}
-      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showAbout && <AboutModal onClose={closeGuide} />}
       {error && (
         <div role="alert" className="toast error">
           <AlertCircle size={18} />
@@ -1322,7 +1327,17 @@ function ImportModal({ onClose }: { onClose: () => void }) {
 }
 function AboutModal({ onClose }: { onClose: () => void }) {
   return (
-    <Modal title="A working idea. Clear boundaries." onClose={onClose}>
+    <Modal title="How to use Matchmaker Desk" onClose={onClose}>
+      <div className="about-walkthrough">
+        <h3>Watch the quick walkthrough</h3>
+        <img
+          className="walkthrough-gif"
+          src="/guide/matchmaker-walkthrough.gif"
+          alt="Animated walkthrough: choose a client, review a profile, save a draft, record an outcome, and inspect the evidence."
+          width={960}
+          height={540}
+        />
+      </div>
       <div className="about-grid">
         <div>
           <Users size={22} />
@@ -1359,18 +1374,13 @@ function AboutModal({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <div className="about-walkthrough">
-        <h3>A 90-second walkthrough</h3>
+        <h3>Try the same steps yourself</h3>
         <ol>
-          <li>Choose a fictional client and open a candidate profile.</li>
-          <li>
-            Compare the recorded facts, flexible preferences and unknowns.
-          </li>
-          <li>
-            Save a private draft, then record a meeting directly to test the
-            non-linear workflow.
-          </li>
-          <li>Open “What we know” to inspect the limits of the evidence.</li>
-          <li>Try an intake import to see where the inputs would come from.</li>
+          <li>Pick a client and open a profile to review.</li>
+          <li>Compare confirmed facts, flexible preferences and unknowns.</li>
+          <li>Save a private draft. Nothing is sent.</li>
+          <li>Record an outcome when you know it; there is no required order.</li>
+          <li>Open “What we know” to see what the demo can and cannot tell us.</li>
         </ol>
       </div>
       <p className="modal-footnote">
